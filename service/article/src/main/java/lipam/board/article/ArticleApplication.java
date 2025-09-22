@@ -1,13 +1,13 @@
-package com.lipamboard;
+package lipam.board.article;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class LipamBoardApplication {
+public class ArticleApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(LipamBoardApplication.class, args);
+       SpringApplication.run(ArticleApplication.class, args);
     }
 
 }
