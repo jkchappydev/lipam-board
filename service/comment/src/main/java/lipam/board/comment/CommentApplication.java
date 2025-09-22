@@ -1,13 +1,13 @@
-package lipam.board.article;
+package lipam.board.comment;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ArticleApplication {
+public class CommentApplication {
 
     public static void main(String[] args) {
-       SpringApplication.run(ArticleApplication.class, args);
+       SpringApplication.run(CommentApplication.class, args);
     }
 
 }
