@@ -1,8 +1,9 @@
-package kuke.board.common.snowflake;
+package lipam.board.common.snowflake;
 
 import java.util.random.RandomGenerator;
 
 public class Snowflake {
+
 	private static final int UNUSED_BITS = 1;
 	private static final int EPOCH_BITS = 41; // 41 비트 타임 스탬프로 순차성 보장
 	private static final int NODE_ID_BITS = 10; // 동일한 시간 내에서도 유일성 보장
@@ -47,4 +48,5 @@ public class Snowflake {
 		}
 		return currentTimestamp;
 	}
+
 }
