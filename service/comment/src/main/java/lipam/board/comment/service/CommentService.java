@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.function.Predicate;
 
+import static java.util.function.Predicate.not;
+
 @Service
 @RequiredArgsConstructor
 public class CommentService {
@@ -42,7 +44,7 @@ public class CommentService {
         }
 
         return commentRepository.findById(parentCommentId)
-                .filter(Predicate.not(Comment::getDeleted))
+                .filter(not(Comment::getDeleted))
                 .filter(Comment::isRoot)
                 .orElseThrow();
     }
@@ -56,7 +58,7 @@ public class CommentService {
     @Transactional
     public void delete(Long commentId) {
         commentRepository.findById(commentId)
-                .filter(Predicate.not(Comment::getDeleted)) // 삭제된 댓글인지 = "삭제 표시" 상태인지 검사
+                .filter(not(Comment::getDeleted)) // 삭제된 댓글인지 = "삭제 표시" 상태인지 검사
                 .ifPresent(comment -> { // 댓글이 있으면 삭제
                     if (hasChildren(comment)) {
                         comment.delete();// 하위 댓글이 있다면, "삭제 표시"만
@@ -77,7 +79,7 @@ public class CommentService {
         if (!comment.isRoot()) { // 삭제 대상이 대댓글이면, 부모도 정리 대상인지 확인
             commentRepository.findById(comment.getParentCommentId()) // 부모 댓글 조회
                     .filter(Comment::getDeleted) // 1. 부모가 이미 "삭제 표시" 상태인 경우만
-                    .filter(Predicate.not(this::hasChildren)) // 2. 부모에게 남은 자식 댓글이 더 없으면
+                    .filter(not(this::hasChildren)) // 2. 부모에게 남은 자식 댓글이 더 없으면
                     .ifPresent(this::delete); // 3. 실제 삭제
         }
     }
