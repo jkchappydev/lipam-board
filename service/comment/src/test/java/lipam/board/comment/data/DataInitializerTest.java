@@ -23,7 +23,7 @@ public class DataInitializerTest {
     TransactionTemplate transactionTemplate;
 
     Snowflake snowflake = new Snowflake();
-    CountDownLatch latch = new CountDownLatch(EXECUTE_COUNT); // 카운트가 0이 될 때까지 대기한 뒤, 카운트가 0이 되는 시점에 대기 중인 스레드들을 동시에 진행시키는 동기화 장치이다.
+    CountDownLatch latch = new CountDownLatch(EXECUTE_COUNT); // 모든 작업이 끝날 때까지 메인 스레드를 대기시키고, 각 작업 완료 시 countDown()으로 감소하여 0이 되면 await()가 해제되는 동기화 장치이다.
 
     static final int BULK_INSERT_SIZE = 2000; // 한 번의 insert() 호출(= 한 트랜잭션)에서 몇 건을 넣을지(배치 크기) 정의한다.
     static final int EXECUTE_COUNT = 6000; // insert() 작업을 총 몇 번 실행할지(= 스레드 풀에 제출할 작업 개수) 정의한다.

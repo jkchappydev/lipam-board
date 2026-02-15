@@ -25,7 +25,7 @@ public class DataInitializerV2Test {
     TransactionTemplate transactionTemplate;
 
     Snowflake snowflake = new Snowflake();
-    CountDownLatch latch = new CountDownLatch(EXECUTE_COUNT); // 카운트가 0이 될 때까지 대기한 뒤, 카운트가 0이 되는 시점에 대기 중인 스레드들을 동시에 진행시키는 동기화 장치이다.
+    CountDownLatch latch = new CountDownLatch(EXECUTE_COUNT); // 모든 작업이 끝날 때까지 메인 스레드를 대기시키고, 각 작업 완료 시 countDown()으로 감소하여 0이 되면 await()가 해제되는 동기화 장치이다.
 
     static final int BULK_INSERT_SIZE = 2000; // 한 번의 insert() 호출(= 한 트랜잭션)에서 몇 건을 넣을지(배치 크기) 정의한다.
     static final int EXECUTE_COUNT = 6000; // insert() 작업을 총 몇 번 실행할지(= 스레드 풀에 제출할 작업 개수) 정의한다.
@@ -42,7 +42,7 @@ public class DataInitializerV2Test {
             // insert() 는 멀티 스레드에서 실행중인데, path 는 유니크 인덱스이므로 중복없이 생성되어야 함.
             // 모든 멀티 스레드에서 중복없는 숫자를 생성하기 위해 start 와 end 로 범위를 지정하고, insert(start, end) 파라미터로 넘긴다.
             // insert(start, end) 는 지정한 start, end 범위에 대해서 for 반복문의 i 값에 넣고 실행하면, 해당 반복문은 중복없이 숫자가 생성된다.
-            int start = BULK_INSERT_SIZE;
+            int start = i * BULK_INSERT_SIZE;
             int end = (i + 1) * BULK_INSERT_SIZE;
             executorService.submit(() -> {
                 insert(start, end); // 실제 DB 로 insert 한다.
