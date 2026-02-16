@@ -2,6 +2,8 @@ package lipam.board.like.service;
 
 import lipam.board.common.snowflake.Snowflake;
 import lipam.board.like.entity.ArticleLike;
+import lipam.board.like.entity.ArticleLikeCount;
+import lipam.board.like.repository.ArticleLikeCountRepository;
 import lipam.board.like.repository.ArticleLikeRepository;
 import lipam.board.like.service.response.ArticleLikeResponse;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ public class ArticleLikeService {
 
     private final Snowflake snowflake = new Snowflake();
     private final ArticleLikeRepository articleLikeRepository;
+    private final ArticleLikeCountRepository articleLikeCountRepository;
 
     public ArticleLikeResponse read(
             Long articleId,
@@ -24,8 +27,12 @@ public class ArticleLikeService {
                 .orElseThrow();
     }
 
+    /**
+     * 비관적 락 - 방법 1
+     * update 구문
+     */
     @Transactional
-    public void like(Long articleId, Long userId) {
+    public void likePessimisticLock1(Long articleId, Long userId) {
         articleLikeRepository.save(
                 ArticleLike.create(
                         snowflake.nextId(),
@@ -33,12 +40,86 @@ public class ArticleLikeService {
                         userId
                 )
         );
+
+        int result = articleLikeCountRepository.increase(articleId);
+        if (result == 0) {
+            // 최초 요청 시에는 update 되는 레코드가 없으므로, 1로 초기화 한다.
+            // 트래픽이 순식간에 몰릴 수 있는 상황에는 유실될 수 있으므로, 게시글 생성 시점에 미리 0으로 초기화 해둘수도 있다.
+            articleLikeCountRepository.save(
+                    ArticleLikeCount.init(articleId, 1L)
+            );
+        }
+
+
     }
 
     @Transactional
-    public void unlike(Long articleId, Long userId) {
+    public void unlikePessimisticLock1(Long articleId, Long userId) {
         articleLikeRepository.findByArticleIdAndUserId(articleId, userId)
-                .ifPresent(articleLikeRepository::delete);
+                .ifPresent(articleLike -> {
+                    articleLikeRepository.delete(articleLike);
+                    articleLikeCountRepository.decrease(articleId);
+                });
+    }
+
+    /**
+     * 비관적 락 - 방법 2
+     * select ... for update + update 구문
+     */
+    @Transactional
+    public void likePessimisticLock2(Long articleId, Long userId) {
+        articleLikeRepository.save(
+                ArticleLike.create(
+                        snowflake.nextId(),
+                        articleId,
+                        userId
+                )
+        );
+
+        // 조회된 데이터에 대해서 비관적 락이 잡힌다.
+        ArticleLikeCount articleLikeCount = articleLikeCountRepository.findLockedByArticleId(articleId)
+                .orElseGet(() -> ArticleLikeCount.init(articleId, 0L)); // 만약 조회된 데이터가 없으면 0으로 초기화 한다.
+        articleLikeCount.increase(); // 조회된 데이터에 대해서 좋아요 수 + 1
+        articleLikeCountRepository.save(articleLikeCount); // 조회된 데이터가 없어서 0 으로 초기화 할때, 아직 데이터가 영속되지 않은 상태일 수도 있으므로 명시적으로 호출
+    }
+
+    @Transactional
+    public void unlikePessimisticLock2(Long articleId, Long userId) {
+        articleLikeRepository.findByArticleIdAndUserId(articleId, userId)
+                .ifPresent(articleLike -> {
+                    articleLikeRepository.delete(articleLike);
+                    ArticleLikeCount articleLikeCount = articleLikeCountRepository.findLockedByArticleId(articleId).orElseThrow(); // 좋아요 수 - 1 처리이므로 반드시 데이터가 있어야 한다.
+                    articleLikeCount.decrease(); // 조회된 데이터에 대해서 좋아요 수 - 1
+                });
+    }
+
+    /**
+     * 낙관적 락
+     */
+    @Transactional
+    public void likeOptimisticLock(Long articleId, Long userId) {
+        articleLikeRepository.save(
+                ArticleLike.create(
+                        snowflake.nextId(),
+                        articleId,
+                        userId
+                )
+        );
+
+        ArticleLikeCount articleLikeCount = articleLikeCountRepository.findById(articleId)
+                .orElseGet(() -> ArticleLikeCount.init(articleId, 0L));// 만약 조회된 데이터가 없으면 0으로 초기화 한다.
+        articleLikeCount.increase(); // 조회된 데이터에 대해서 좋아요 수 + 1
+        articleLikeCountRepository.save(articleLikeCount); // 조회된 데이터가 없어서 0 으로 초기화 할때, 아직 데이터가 영속되지 않은 상태일 수도 있으므로 명시적으로 호출
+    }
+
+    @Transactional
+    public void unlikeOptimisticLock(Long articleId, Long userId) {
+        articleLikeRepository.findByArticleIdAndUserId(articleId, userId)
+                .ifPresent(articleLike -> {
+                    articleLikeRepository.delete(articleLike);
+                    ArticleLikeCount articleLikeCount = articleLikeCountRepository.findById(articleId).orElseThrow();// 좋아요 수 - 1 처리이므로 반드시 데이터가 있어야 한다.
+                    articleLikeCount.decrease(); // 조회된 데이터에 대해서 좋아요 수 - 1
+                });
     }
 
 }
