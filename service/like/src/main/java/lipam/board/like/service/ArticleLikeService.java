@@ -122,4 +122,10 @@ public class ArticleLikeService {
                 });
     }
 
+    public Long count(Long articleId) {
+        return articleLikeCountRepository.findById(articleId)
+                .map(ArticleLikeCount::getLikeCount)
+                .orElse(0L); // 데이터가 없으면 0 으로 초기화
+    }
+
 }
