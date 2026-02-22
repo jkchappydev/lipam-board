@@ -1,2 +1,21 @@
 server:
   port: 9004
+
+spring:
+  application:
+    name: lipam-board-hot-article-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: lipam-board-hot-article-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+
+endpoints:
+  lipam-board-article-service: # 인기글 조회 시 게시글 원본 정보가 필요하기 때문에 추가
+    url: http://localhost:9000
