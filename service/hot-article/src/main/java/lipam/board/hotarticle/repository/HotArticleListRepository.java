@@ -16,7 +16,7 @@ import java.util.List;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-public class HotArticleRepository {
+public class HotArticleListRepository {
 
     private final StringRedisTemplate redisTemplate;
 

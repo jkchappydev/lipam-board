@@ -1,6 +1,5 @@
 package lipam.board.hotarticle.repository;
 
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HotArticleRepositoryTest {
 
     @Autowired
-    HotArticleRepository hotArticleRepository;
+    HotArticleListRepository hotArticleRepository;
 
     @Test
     void addTest() throws InterruptedException {
