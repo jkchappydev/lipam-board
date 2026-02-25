@@ -1,5 +1,9 @@
 package lipam.board.like.service;
 
+import lipam.board.common.event.EventType;
+import lipam.board.common.event.payload.ArticleLikedEventPayload;
+import lipam.board.common.event.payload.ArticleUnlikedEventPayload;
+import lipam.board.common.outboxmessagerelay.OutboxEventPublisher;
 import lipam.board.common.snowflake.Snowflake;
 import lipam.board.like.entity.ArticleLike;
 import lipam.board.like.entity.ArticleLikeCount;
@@ -17,6 +21,7 @@ public class ArticleLikeService {
     private final Snowflake snowflake = new Snowflake();
     private final ArticleLikeRepository articleLikeRepository;
     private final ArticleLikeCountRepository articleLikeCountRepository;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     public ArticleLikeResponse read(
             Long articleId,
@@ -33,7 +38,7 @@ public class ArticleLikeService {
      */
     @Transactional
     public void likePessimisticLock1(Long articleId, Long userId) {
-        articleLikeRepository.save(
+        ArticleLike articleLike = articleLikeRepository.save(
                 ArticleLike.create(
                         snowflake.nextId(),
                         articleId,
@@ -50,7 +55,22 @@ public class ArticleLikeService {
             );
         }
 
-
+        // 좋아요 생성 이벤트 발행
+        // 좋아요 생성 시 Outbox에 이벤트 저장 → 트랜잭션 커밋 후 Kafka 전송 → articleId 기준 샤드 라우팅으로 게시글 단위 순서 보장
+        // - type: ARTICLE_LIKED
+        // - payload: 좋아요 정보 + 현재 게시글의 전체 좋아요 수(articleLikeCount)
+        // - shardKey: articleId 기준으로 샤드 라우팅 (같은 게시글 이벤트는 동일 샤드에서 순서 보장)
+        outboxEventPublisher.publish(
+                EventType.ARTICLE_LIKED,
+                ArticleLikedEventPayload.builder()
+                        .articleLikeId(articleLike.getArticleLikeId())
+                        .articleId(articleLike.getArticleId())
+                        .userId(articleLike.getUserId())
+                        .createdAt(articleLike.getCreatedAt())
+                        .articleLikeCount(count(articleLike.getArticleId()))
+                        .build(),
+                articleLike.getArticleId()
+        );
     }
 
     @Transactional
@@ -59,6 +79,23 @@ public class ArticleLikeService {
                 .ifPresent(articleLike -> {
                     articleLikeRepository.delete(articleLike);
                     articleLikeCountRepository.decrease(articleId);
+
+                    // 좋아요 취소 이벤트 발행
+                    // 좋아요 취소 시 Outbox에 이벤트 저장 → 트랜잭션 커밋 후 Kafka 전송 → articleId 기준 샤드 라우팅으로 게시글 단위 순서 보장
+                    // - type: ARTICLE_UNLIKED
+                    // - payload: 좋아요 취소 정보 + 현재 게시글의 전체 좋아요 수
+                    // - shardKey: articleId 기준 샤드 라우팅 (같은 게시글에 대한 이벤트는 동일 샤드에서 처리)
+                    outboxEventPublisher.publish(
+                            EventType.ARTICLE_UNLIKED,
+                            ArticleUnlikedEventPayload.builder()
+                                    .articleLikeId(articleLike.getArticleLikeId())
+                                    .articleId(articleLike.getArticleId())
+                                    .userId(articleLike.getUserId())
+                                    .createdAt(articleLike.getCreatedAt())
+                                    .articleLikeCount(count(articleLike.getArticleId()))
+                                    .build(),
+                            articleLike.getArticleId()
+                    );
                 });
     }
 

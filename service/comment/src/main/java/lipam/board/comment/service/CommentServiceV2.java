@@ -8,6 +8,10 @@ import lipam.board.comment.repository.CommentRepositoryV2;
 import lipam.board.comment.service.request.CommentCreateRequestV2;
 import lipam.board.comment.service.response.CommentPageResponse;
 import lipam.board.comment.service.response.CommentResponse;
+import lipam.board.common.event.EventType;
+import lipam.board.common.event.payload.CommentCreatedEventPayload;
+import lipam.board.common.event.payload.CommentDeletedEventPayload;
+import lipam.board.common.outboxmessagerelay.OutboxEventPublisher;
 import lipam.board.common.snowflake.Snowflake;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +28,7 @@ public class CommentServiceV2 {
     private final Snowflake snowflake = new Snowflake();
     private final CommentRepositoryV2 commentRepository;
     private final ArticleCommentCountRepository articleCommentCountRepository;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Transactional
     public CommentResponse create(CommentCreateRequestV2 request) {
@@ -50,6 +55,25 @@ public class CommentServiceV2 {
                     ArticleCommentCount.init(request.getArticleId(), 1L)
             );
         }
+
+        // 댓글 생성 이벤트 발행
+        // 댓글 생성 시 Outbox에 이벤트 저장 → 트랜잭션 커밋 후 Kafka 전송 → articleId 기준 샤드 라우팅으로 게시글 단위 순서 보장
+        // - type: COMMENT_CREATED
+        // - payload: 생성된 댓글 정보 + 현재 게시글의 전체 댓글 수(articleCommentCount)
+        // - shardKey: articleId 기준으로 샤드 라우팅 (같은 게시글에 대한 이벤트는 동일 샤드로 모이게)
+        outboxEventPublisher.publish(
+                EventType.COMMENT_CREATED,
+                CommentCreatedEventPayload.builder()
+                        .commentId(comment.getCommentId())
+                        .content(comment.getContent())
+                        .articleId(comment.getArticleId())
+                        .writerId(comment.getWriterId())
+                        .deleted(comment.getDeleted())
+                        .createdAt(comment.getCreatedAt())
+                        .articleCommentCount(count(comment.getArticleId()))
+                        .build(),
+                comment.getArticleId()
+        );
 
         return CommentResponse.from(comment);
     }
@@ -78,6 +102,25 @@ public class CommentServiceV2 {
                     } else {
                         delete(comment);
                     }
+
+                    // 댓글 삭제 이벤트 발행
+                    // 댓글 삭제 시 Outbox에 이벤트 저장 → 트랜잭션 커밋 후 Kafka 전송 → articleId 기준 샤드 라우팅으로 게시글 단위 순서 보장
+                    // - type: COMMENT_DELETED
+                    // - payload: 삭제된 댓글 정보 + 현재 게시글의 전체 댓글 수
+                    // - shardKey: articleId 기준 샤드 라우팅 (같은 게시글 이벤트는 동일 샤드로 처리되어 순서 보장)
+                    outboxEventPublisher.publish(
+                            EventType.COMMENT_DELETED,
+                            CommentDeletedEventPayload.builder()
+                                    .commentId(comment.getCommentId())
+                                    .content(comment.getContent())
+                                    .articleId(comment.getArticleId())
+                                    .writerId(comment.getWriterId())
+                                    .deleted(comment.getDeleted())
+                                    .createdAt(comment.getCreatedAt())
+                                    .articleCommentCount(count(comment.getArticleId()))
+                                    .build(),
+                            comment.getArticleId()
+                    );
                 });
     }
 
