@@ -1,0 +1,9 @@
+# 다른 모듈에서 dependency 로 포함되면, AutoConfiguration.imports 에 등록된 MessageRelayConfig(자동 설정 클래스)가 자동 로딩된다.
+# MessageRelayConfig 의 @ComponentScan("lipam.board.common.outboxmessagerelay")로 아래 구성 요소들이 함께 스캔/빈 등록된다.
+#
+# - MessageRelay : Outbox 에 저장된 이벤트를 Kafka 로 전송하는 릴레이 로직
+# - MessageRelayCoordinator : Redis(ZSET)로 실행 중인 애플리케이션 목록 관리 + 샤드 할당 계산
+# - OutboxRepository : Outbox 엔티티 조회/삭제를 위한 JPA Repository
+# - OutboxEventPublisher : Outbox 이벤트 생성 후 applicationEventPublisher 로 발행
+# - (필요 시) MessageRelayConstants / AssignedShard / Outbox / OutboxEvent 등 연관 클래스들도 함께 사용된다.
+lipam.board.common.outboxmessagerelay.MessageRelayConfig

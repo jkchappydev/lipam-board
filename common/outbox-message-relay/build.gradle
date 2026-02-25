@@ -1,0 +1,10 @@
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis' // 애플리케이션 마다 샤드를 균등하게 처리하는 역할인 Coordinator 생성을 위한 의존성
+    implementation 'org.springframework.kafka:spring-kafka' // Kafka 로 전송/수신해야 하니깐 추가
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    implementation project(':common:snowflake') // 분산 환경에서 유니크한 ID 생성을 위한 Snowflake 모듈
+    implementation project(':common:event') // 이벤트 전송/공유를 위한 공통 이벤트 모듈
+    implementation project(':common:data-serializer') // 이벤트 직렬화/역직렬화를 위한 공통 모듈
+}
