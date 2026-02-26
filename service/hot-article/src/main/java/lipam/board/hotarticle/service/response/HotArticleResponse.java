@@ -2,10 +2,12 @@ package lipam.board.hotarticle.service.response;
 
 import lipam.board.hotarticle.client.ArticleClient;
 import lombok.Getter;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 
 @Getter
+@ToString
 public class HotArticleResponse {
 
     private Long articleId;
