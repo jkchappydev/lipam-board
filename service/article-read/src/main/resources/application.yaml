@@ -25,4 +25,4 @@ endpoints:
   lipam-board-like-service:
     url: http://localhost:9002
   lipam-board-view-service:
-    url: http://localhost:9002
+    url: http://localhost:9003

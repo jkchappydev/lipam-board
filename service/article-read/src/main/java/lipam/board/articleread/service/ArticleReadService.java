@@ -67,7 +67,7 @@ public class ArticleReadService {
 
         return ArticleReadResponse.from(
                 articleQueryModel,
-                viewClient.count(articleId)
+                viewClient.count(articleId) // 트래픽이 많으면 조회수 서비스에 모든 부하 전파 (캐시 이용, ViewClient 참고)
         );
     }
 
