@@ -1,2 +1,28 @@
 server:
   port: 9005
+
+spring:
+  application:
+    name: lipam-board-article-read-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: lipam-board-article-read-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+
+endpoints:
+  # Redis 에 데이터가 없으면 command 서버에서 원본 데이터를 가져오기 위해 추가
+  lipam-board-article-service:
+    url: http://localhost:9000
+  lipam-board-comment-service:
+    url: http://localhost:9001
+  lipam-board-like-service:
+    url: http://localhost:9002
+  lipam-board-view-service:
+    url: http://localhost:9002
