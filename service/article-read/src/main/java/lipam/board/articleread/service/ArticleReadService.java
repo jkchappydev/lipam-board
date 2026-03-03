@@ -4,9 +4,12 @@ import lipam.board.articleread.client.ArticleClient;
 import lipam.board.articleread.client.CommentClient;
 import lipam.board.articleread.client.LikeClient;
 import lipam.board.articleread.client.ViewClient;
+import lipam.board.articleread.repository.ArticleIdListRepository;
 import lipam.board.articleread.repository.ArticleQueryModel;
 import lipam.board.articleread.repository.ArticleQueryModelRepository;
+import lipam.board.articleread.repository.BoardArticleCountRepository;
 import lipam.board.articleread.service.event.handler.EventHandler;
+import lipam.board.articleread.service.response.ArticleReadPageResponse;
 import lipam.board.articleread.service.response.ArticleReadResponse;
 import lipam.board.common.event.Event;
 import lipam.board.common.event.EventPayload;
@@ -16,6 +19,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -48,6 +53,9 @@ public class ArticleReadService {
 
     // Kafka Consumer 가 이벤트를 받으면, 이벤트 타입별로 처리하는 핸들러 목록
     private final List<EventHandler> eventHandlers;
+
+    private ArticleIdListRepository articleIdListRepository;
+    private BoardArticleCountRepository boardArticleCountRepository;
 
     public void handleEvent(Event<EventPayload> event) {
         // 들어온 이벤트를 처리할 수 있는 핸들러를 찾아서 실행
@@ -87,5 +95,78 @@ public class ArticleReadService {
 
         return articleQueryModelOptional;
     }
+
+    // == 페이지 번호 방식 ==
+    public ArticleReadPageResponse readAll(Long boardId, Long page, Long pageSize) {
+        return ArticleReadPageResponse.of(
+                readAll(
+                        readAllArticleIds(boardId, page, pageSize)
+                ),
+                count(boardId)
+        );
+    }
+
+    private List<ArticleReadResponse> readAll(List<Long> articleIds) {
+        Map<Long, ArticleQueryModel> articleQueryModelMap = articleQueryModelRepository.readAll(articleIds);
+        return articleIds.stream()
+                .map(articleId -> articleQueryModelMap.containsKey(articleId) ?
+                        articleQueryModelMap.get(articleId) :
+                        fetch(articleId).orElse(null))
+                .filter(Objects::nonNull)
+                .map(articleQueryModel ->
+                        ArticleReadResponse.from(
+                                articleQueryModel,
+                                viewClient.count(articleQueryModel.getArticleId())
+                        ))
+                .toList();
+    }
+
+    private List<Long> readAllArticleIds(Long boardId, Long page, Long pageSize) {
+        List<Long> articleIds = articleIdListRepository.readAll(boardId, (page - 1) * pageSize, pageSize);
+        if (pageSize == articleIds.size()) { // pageSize 와 articleIds (목록) 개수가 동일하다는 뜻은, 현재 page 에 대한 게시글 목록이 Redis 에 전부 저장되어 있는 것을 의미한다.
+            log.info("[ArticleReadService.readAllArticleIds] return redis data.");
+            return articleIds;
+        }
+
+        // Redis 에 데이터가 없는 경우, 원본 데이터를 가져온다.
+        log.info("[ArticleReadService.readAllArticleIds] return origin data.");
+        return articleClient.readAll(boardId, page, pageSize).getArticles().stream()
+                .map(ArticleClient.ArticleResponse::getArticleId)
+                .toList();
+    }
+
+    private long count(Long boardId) {
+        Long result = boardArticleCountRepository.read(boardId);
+        if (result != null) {
+            return result;
+        }
+
+        // Redis 에 데이터가 없는 상황
+        long count = articleClient.count(boardId);
+        boardArticleCountRepository.createOrUpdate(boardId, count); // 적재
+        return count;
+    }
+    // == 페이지 번호 방식 끝 ==
+
+    // == 무한 스크롤 방식 ==
+    public List<ArticleReadResponse> readAllInfiniteScroll(Long boardId, Long lastArticleId, Long pageSize) {
+        return readAll(
+                readAllInfiniteScrollArticleIds(boardId, lastArticleId, pageSize)
+        );
+    }
+
+    private List<Long> readAllInfiniteScrollArticleIds(Long boardId, Long lastArticleId, Long pageSize) {
+        List<Long> articleIds = articleIdListRepository.readAllInfiniteScroll(boardId, lastArticleId, pageSize);
+        if (pageSize == articleIds.size()) { // pageSize 와 articleIds (목록) 개수가 동일하다는 뜻은, 현재 page 에 대한 게시글 목록이 Redis 에 전부 저장되어 있는 것을 의미한다.
+            log.info("[ArticleReadService.readAllInfiniteScrollArticleIds] return redis data.");
+            return articleIds;
+        }
+        // Redis 에 데이터가 없는 경우, 원본 데이터를 가져온다.
+        log.info("[ArticleReadService.readAllInfiniteScrollArticleIds] return origin data.");
+        return articleClient.readAllInfiniteScroll(boardId, lastArticleId, pageSize).stream()
+                .map(ArticleClient.ArticleResponse::getArticleId)
+                .toList();
+    }
+    // == 무한 스크롤 방식 끝 ==
 
 }
