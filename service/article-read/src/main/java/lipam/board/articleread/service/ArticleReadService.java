@@ -54,8 +54,8 @@ public class ArticleReadService {
     // Kafka Consumer 가 이벤트를 받으면, 이벤트 타입별로 처리하는 핸들러 목록
     private final List<EventHandler> eventHandlers;
 
-    private ArticleIdListRepository articleIdListRepository;
-    private BoardArticleCountRepository boardArticleCountRepository;
+    private final ArticleIdListRepository articleIdListRepository;
+    private final BoardArticleCountRepository boardArticleCountRepository;
 
     public void handleEvent(Event<EventPayload> event) {
         // 들어온 이벤트를 처리할 수 있는 핸들러를 찾아서 실행
