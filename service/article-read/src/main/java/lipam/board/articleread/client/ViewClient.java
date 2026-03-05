@@ -1,6 +1,7 @@
 package lipam.board.articleread.client;
 
 import jakarta.annotation.PostConstruct;
+import lipam.board.articleread.cache.OptimizedCacheable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +30,8 @@ public class ViewClient {
     // 3. 캐시에 값이 없으면 → count() 메서드를 실제로 실행하여 View 서비스에 요청한다. (아래 로그 출력)
     // 4. 조회 결과를 Redis 캐시에 저장한 뒤 응답한다.
     // 5. 이후 동일 articleId 요청은 TTL(1초) 동안 Redis 캐시 값을 재사용한다.
-    @Cacheable(key = "#articleId", value = "articleViewCount")
+    // @Cacheable(key = "#articleId", value = "articleViewCount")
+    @OptimizedCacheable(type = "articleViewCount", ttlSeconds = 1) // 캐시 정책(키/TTL/fallback)을 직접 제어하고 로그·튜닝을 쉽게 하려고 @OptimizedCacheable 로 변경
     public long count(Long articleId) {
         log.info("[ViewClient.count] articleId={}", articleId);
         try {
