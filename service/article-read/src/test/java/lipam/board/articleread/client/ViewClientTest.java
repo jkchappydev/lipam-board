@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
@@ -23,6 +26,24 @@ class ViewClientTest {
         // 캐시 TTL(1초)보다 길게 대기 -> 3초
         TimeUnit.SECONDS.sleep(3);
         viewClient.count(1L); // Redis 캐시가 사라졌으므로 다시 실제 API 호출 발생 -> 로그 출력
+    }
+
+    @Test
+    void readCacheableMultiThreadTest() throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+
+        viewClient.count(1L);
+
+        for (int i = 0; i < 5; i++) {
+            CountDownLatch latch = new CountDownLatch(5);
+            executorService.execute(() -> {
+                viewClient.count(1L);
+                latch.countDown();
+            });
+            latch.await();
+            TimeUnit.SECONDS.sleep(2);
+            System.out.println("=== cache expired ===");
+        }
     }
 
 }

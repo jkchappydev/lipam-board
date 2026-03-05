@@ -31,7 +31,11 @@ public class ViewClient {
     // 4. 조회 결과를 Redis 캐시에 저장한 뒤 응답한다.
     // 5. 이후 동일 articleId 요청은 TTL(1초) 동안 Redis 캐시 값을 재사용한다.
     // @Cacheable(key = "#articleId", value = "articleViewCount")
-    @OptimizedCacheable(type = "articleViewCount", ttlSeconds = 1) // 캐시 정책(키/TTL/fallback)을 직접 제어하고 로그·튜닝을 쉽게 하려고 @OptimizedCacheable 로 변경
+
+    // @Cacheable 사용 시 캐시 만료 순간에 동일 요청이 몰리면
+    // 원본 서버로 트래픽이 집중되는 Cache Stampede 문제가 발생할 수 있다.
+    // 이를 해결하기 위해 Logical TTL / Physical TTL + 분산락 기반 Request Collapsing 캐시 전략 적용
+    @OptimizedCacheable(type = "articleViewCount", ttlSeconds = 1)
     public long count(Long articleId) {
         log.info("[ViewClient.count] articleId={}", articleId);
         try {
